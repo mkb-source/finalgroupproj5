@@ -1,0 +1,228 @@
+---
+title: "ARIMA Homework"
+author: "Mike Dyrhaug"
+date: "4/13/2022"
+output:
+  word_document: default
+  html_document: default
+editor_options:
+  chunk_output_type: console
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(fpp3)
+library(patchwork)
+```
+
+# QUESTION 1 - Understanding ACFs and Differencing
+
+A classic example of a non-stationary series are stock prices. Plot the daily closing prices for Amazon stock (contained in `gafa_stock`), along with the ACF and PACF. Explain how each plot shows that the series is non-stationary and should be differenced.
+
+```{r Q1}
+gafa_stock %>%
+  filter(Symbol == "AMZN") %>%
+  mutate(t = row_number()) %>%
+  update_tsibble(index = t) %>%
+  gg_tsdisplay(Close, plot_type = "partial")
+```
+
+*RESPONSE* - The ACF has a very slow and gradual descend and has no variation, and we want an ACF to have white noise in it. Both the ACF and the PACF show it is not stationary. PACF shows single spike at lag 1. 
+
+# QUESTION 2 - Transformations and Differncing
+
+For the following series, find the appropriate order of differencing (after transformation if necessary) to obtain stationary data.
+
+```{r Q2A}
+set.seed(12345678)
+#Series Created for you
+myseries <- aus_retail %>%
+  filter(
+    `Series ID` == sample(aus_retail$`Series ID`, 1),
+    Month < yearmonth("2018 Jan")
+  )
+#Plot Series
+
+autoplot(myseries)
+
+```
+
+
+```{r Q2B}
+#Find transformation
+myseries %>% 
+  mutate(Turnover = log(Turnover))  %>% 
+  autoplot()
+#Plot transformed series
+```
+
+
+*RESPONSE FOR TRANSFORMATION*
+The transformation was necessary
+
+
+```{r Q2C}
+#Find differencing
+myseries %>% 
+  mutate(Turnover = log(Turnover)) %>% 
+  mutate(Turnover= difference(Turnover, 12)) %>% 
+  mutate(Turnover= difference(Turnover)) %>% 
+  gg_tsdisplay(Turnover, plot_type = 'partial')
+
+#Plot differenced series
+```
+
+
+*RESPONSE FOR DIFFERNCING*
+The differencing fixed all the plots so that we didn't have any issues. the point plot has more static in it, the acf is not linear and the pacf has also been fixed
+
+# QUESTION 3 - Non-Seasonal ARIMA
+
+Consider `aus_airpassengers`, the total number of passengers (in millions) from Australian air carriers for the period 1970-2011.
+
+A. Use `ARIMA()` to find an appropriate ARIMA model. What model was selected. Check that the residuals look like white noise. Plot forecasts for the next 10 periods.
+
+```{r Q3A}
+fit <- aus_airpassengers %>% 
+  model(ARIMA(Passengers))
+report(fit)
+
+
+fit %>% 
+  forecast(h = 10) %>% 
+  autoplot(aus_airpassengers)
+```
+
+*COMMENTS ON RESIDUALS*
+The ARIMA(0, 2, 1) model was used
+
+
+B. Plot forecasts from an ARIMA(0,1,0) model with drift by adding + 1 and compare these to part a.  Compare both the residuals and difference in forecast intervals.
+
+```{r Q3B}
+fit <- aus_airpassengers %>% 
+  model(
+    autoarima = ARIMA(Passengers),
+    manualwdrift = ARIMA(Passengers ~ 1 + pdq(0, 1, 0)),
+   )
+glance(fit)
+
+fit %>% 
+  select(manualwdrift) %>% 
+  forecast(h = 10) %>% 
+  autoplot(aus_airpassengers)
+```
+
+*RESPONSE FOR COMPARISON*
+The orginal fit had a lower AIC (only by 2) and therefore is a slightly better model than the single shifted drift.
+The original model has a more precise prediction for the 10 years, while the drift has a wider range for more confidence.
+
+# Question 4 - Seasonal ARIMA
+
+Choose a series from `us_employment`, the total employment in different industries in the United States.
+
+a. Produce an STL decomposition of the data and describe the trend and seasonality.
+
+```{r Q4A}
+my_ts <- us_employment %>%
+  filter(Title == 'Total Private')
+autoplot(my_ts)
+
+my_ts %>% 
+  model(STL(Employed)) %>% 
+  components() %>% 
+  gg_subseries()
+```
+*RESPONSE ON TREND/SEASONALITY*
+There is a sharp trend upward, but there is no evidence showing seasonality. The average bars are all very close to eachother and don't produce any spikes.
+
+
+B. Do the data need transforming? If so, find a suitable transformation.
+
+
+```{r Q4B}
+lambda <- my_ts %>% 
+  features(Title, features = guerrero) %>% 
+  pull(lambda_guerrero)
+
+my_ts %>% 
+  mutate(y = box_cox(Employed, lambda)) %>% 
+  mutate(y = difference(y, 4)) %>% 
+  mutate(y = difference(y, 1)) %>% 
+  gg_tsdisplay(plot_type = 'partial')
+```
+*RESPONSE*
+Yes there is strong argument for transforming the data. The ACF still shows there is a ton of trend that needs to be sorted out, the PACF shows the same thing, the last point is the only thing you need to chart the next one.
+
+
+C. Are the data stationary? If not, find an appropriate differencing which yields stationary data.
+
+```{r Q4C}
+my_ts %>% 
+  mutate(y = box_cox(Employed, lambda))  %>% 
+  autoplot()
+```
+
+
+
+D. Identify a couple of ARIMA models that might be useful in describing the time series. Which of your models is the best according to their AICc values?
+
+```{r Q4D}
+fit <- my_ts %>% 
+  mutate(y = box_cox(Employed, lambda)) %>% 
+  model(
+    manualma = ARIMA(Employed ~ 0 + pdq(0, 1, 1) + PDQ(0, 1, 1)),
+    manualar = ARIMA(Employed ~ 0 + pdq(1, 1, 0) + PDQ(2, 1, 0)),
+    autoarima = ARIMA(Employed)
+  )
+
+fit %>% 
+  glance() %>% 
+  arrange(AIC)
+
+```
+*RESPONSE ON MODEL COMPARISON*
+The autoarima is the best model. The AIC was 12920
+
+
+E. Fit an exponential smoothing model to the data.  Compare the AICcs of your ARIMA model and explain which is better and why.
+
+```{r Q4E}
+my_ts <- my_ts %>% 
+  mutate(bc_y = box_cox(Employed, lambda))
+
+fit <- my_ts %>% 
+  model(
+    ets = ETS(bc_y)
+  )
+fit %>% 
+  glance()
+
+```
+
+*Comments on AICc comparisons:*
+39465: It is a much higher AIC than any of my models from the previous portion.
+
+F. Compare the residuals of your final model.  What do you notice?
+
+```{r Q4F}
+fit1 <- my_ts %>% 
+  mutate(y = box_cox(Employed, lambda)) %>% 
+  model(
+    autoarima = ARIMA(Employed)
+  )
+fit2 <- my_ts %>% 
+  model(
+    ets = ETS(bc_y)
+  )
+fit1 %>% 
+  glance()
+fit2 %>% 
+  glance()
+```
+
+
+*Comments on residuals of final model:*
+There is still a large discrepency between the AIC's. The ETS model has a much higher AIC at 39465, opposed to the auto generated one that sits at 12920.
+

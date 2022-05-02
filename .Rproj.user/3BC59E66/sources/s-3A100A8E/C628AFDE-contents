@@ -1,0 +1,257 @@
+---
+title: "Time Series Regression"
+author: "Me"
+date: "`r Sys.Date()`"
+output:
+  word_document: default
+  html_document: default
+editor_options:
+  chunk_output_type: console
+---
+
+```{r setup, message=FALSE}
+library(fpp3)
+
+data("vic_elec")
+data("us_gasoline")
+```
+
+```{r hilo_helper, include=FALSE}
+# For use on a question below
+expand_hilo <- function(tbl) {
+  tbl %>%
+    mutate(
+      across(
+        distributional::is_hilo,
+        .fns = list(
+          lower = function(x) x$lower,
+          upper = function(x) x$upper
+        )
+      )
+    ) %>%
+    select(where(~ !distributional::is_hilo(.x))) %>%
+    select(where(~ !distributional::is_distribution(.x)))
+}
+```
+  
+
+# QUESTION 1 - 60 Points
+
+Half-hourly electricity demand for Victoria, Australia is contained in `vic_elec`. 
+
+* Extract the January 2014 electricity demand
+* aggregate this data to daily with:
+  * daily total demands
+  * maximum temperatures
+* Use `jan_daily_elec` as the name of your filtered/aggregated data
+  * this will be needed in a question later
+
+You'll want to filter, index_by and then summarise. 
+
+**(5 Points for setting up data)**
+
+```{r Q1 Setup}
+jan_daily_elec <- vic_elec %>% 
+  filter(Date >= '2014-01-01') %>% 
+  filter(Date <= '2014-01-31') %>% 
+  index_by(Date) %>% 
+  summarise(
+    Demand = sum(Demand), Temperature = max(Temperature)
+)
+```
+
+
+
+a. Plot the data and find the regression model for `Demand` with `Temperature` as an explanatory variable. Why is there a positive relationship?  Use the `TSLM()` model when fitting. 
+
+**(5 points for plot. 5 points for model fit. 5 points for description)**
+  
+
+
+```{r Q1 Plot and Model}
+fit <- jan_daily_elec %>% 
+  model(TSLM(Demand ~ Temperature))
+report(fit)
+autoplot(jan_daily_elec)
+```
+
+**RESPONSE:**
+As the temperature increases through the month of January, the demand is increasing. People are more likely using more electricity on AC and fans.
+
+b. Produce a residual plot using `gg_tsresiduals()`. Is the model adequate? Are there any outliers or influential observations? 
+
+**(10 points for plot and  5 points for description)**
+  
+```{r Q1 Residuals}
+gg_tsresiduals(fit)
+```
+
+**RESPONSE:**
+The residual plot does not seem to have a pattern in its points, however a lot of those points are more often than not seriously under predicting the actual power usage of a particular day. The bar plot isn't perfectly normal but it would be hard to argue that there is a heavy skew in either direction. The lag chart actually looks good only the first point is way out from 0.
+
+
+c. Use the model to forecast the electricity demand that you would expect for the next day if the maximum temperature was `15` degrees and compare it with the forecast if the with maximum temperature was `35` degrees. 
+
+* Do you believe these forecasts?  
+
+Part of the code has been supplied to show how to create the scenarios to forecast new possibilities. 
+
+**(5 Points for forecasts and 5 for response)**
+  
+```{r Q1 Forecast}
+# New Data creation - Supplied
+next_day <- scenarios(
+  `Cold day` = new_data(jan_daily_elec, 1) %>%
+    mutate(Temperature = 15),
+  `Hot day` = new_data(jan_daily_elec, 1) %>%
+    mutate(Temperature = 35)
+)
+
+
+# Make forecast - Partially supplied
+fc <- fit %>%
+  forecast(fit, new_data = next_day)
+
+
+# autoplot the original series
+# add an autolayer to show forecasts
+jan_daily_elec %>% 
+  autoplot(Demand) +
+  autolayer(fc)
+```
+
+**RESPONSE:**
+I can definitely believe that the hot day prediction is accurate it seems that that is a safe range of values if the temperature stays warmer, however, the cold day prediction is way too low. The median of the prediction is lower than any other day of demand on the chart, and the lower bound is absurdly low.
+
+
+D. Give prediction intervals for your forecasts of the `next_day` data used in the previous cell. Pipe the forecast to `hilo()` and then pipe through a select without the model.
+
+Use the `expand_hilo()` function to display the numbers in the chunk output.  If you see `<S3: hilo>` in your output, then you haven't used `expand_hilo()` correctly.
+
+```
+your_code %>% 
+  hilo() %>%
+  expand_hilo() %>%
+  your_code_too
+```
+
+**(5 Points for prediction intervals)**
+
+```{r Q1 Prediction Intervals}
+fc %>% 
+  hilo() %>%
+  expand_hilo() %>%
+  select()
+```
+
+
+E. Plot daily Demand vs Temperature for all of the available data in `vic_elec` (Not just January 2014) 
+* aggregate this data to daily with:
+  * daily total demands
+  * maximum temperatures
+* Create a scatter plot of Temp and Demand
+  
+What does this say about your model?  
+
+One way to do this:
+Pipe the data through `index_by()`, `summarise()` (with two arguments), `ggplot()` (With x and y `aes()`) and add `geom_point()`  Remember to run your code in parts to see if it is working each step as you pipe.
+
+**(5 Points for full model and 5 investigating issue with model)**
+  
+```{r Q1 Full model}
+index_by(vic_elec) %>% 
+  summarise() %>% 
+  ggplot()+ aes(x = Demand, y = Temperature) %>% 
+  geom_point(vic_elec)
+```
+
+**RESPONSE:**
+The scatterplot shows almost a < sign showing that there is a tempeature dead zone where it is not needed to run heat or AC nearly as much, and as you get further away from that temp, there is more power being used. And from this I would say that the hotter it is, the more demand there is because it takes more energy to run AC and fans and other stuff as opposed to just a house heating system.
+
+# QUESTION 2 - 40 Points
+
+The `us_gasoline` series consists of weekly data for supplies of US finished motor gasoline product, from 2 February 1991 to 20 January 2017. The units are in "thousand barrels per day". Consider only the data to the end of 2004.  Create an autoplot of the data. 
+
+**(2 Points for plot)**
+
+
+```{r Q2 Autoplot}
+us_gas <- us_gasoline %>% 
+  filter(Week >= yearweek('1991-02-02')) %>% 
+  filter(Week <= yearweek('2017-01-20'))
+autoplot(us_gas)
+```
+
+A. Fit multiple harmonic regressions (1-10) with trend to the data. Experiment with changing the number Fourier terms. Plot the observed gasoline and fitted values and comment on what you see.  The code for creating a harmonic regression is supplied below.
+
+**(3 Points for models fit)**
+
+
+```{r Q2 Harmonic}
+# Supplied Code:
+fit <-us_gas %>% 
+  model(
+    m1 = TSLM(Barrels ~ trend() + fourier(K = 1)),
+    m2 = TSLM(Barrels ~ trend() + season()), 
+    m3 = TSLM(Barrels ~ trend() + fourier(K = 2))
+    )
+report(fit)
+best_fit <- fit %>% 
+  select(m2)
+
+best_fit %>% 
+  forecast(h = '5 years') %>% 
+  autoplot(us_gas)
+```
+
+
+B. Select the appropriate number of Fourier terms to include by minimising the AICc or CV value.
+
+**(5 Points for correct model)**
+
+**RESPONSE:**
+m3, AIC = -2286.181	
+C. Check the residuals of the final model using the `gg_tsresiduals()` function. 
+
+**(5 Points for plot and 5 points for response)**
+
+```{r Q2 Residuals}
+glance(fit) %>% 
+  arrange(AIC)
+best_fit <- fit %>% 
+  select(m3)
+gg_tsresiduals(best_fit)
+```
+
+
+**RESPONSE:** 
+
+D. Use a Ljung-Box test to check for residual autocorrelation.  Interpret the results for someone who doesn't run code.
+
+**(5 points for test and 5 for interpretation)**
+
+```{r Q2 Ljung Box Test}
+augment(best_fit) %>% 
+  features(.innov, ljung_box)
+
+```
+
+**RESPONSE:**
+According to the pvalue, there is significant autocorrelation with the residuals, which is bad.
+
+E. Generate forecasts for the next year of data. Plot these along with the actual data for 2005 (you'll need to filter to just 2005). Comment on the forecasts.
+
+**(5 Points for plot and 5 for interpretation)**
+
+```{r}
+us_gas <- us_gas %>% 
+  filter(Week >= yearweek('2015-01-01')) %>% 
+  filter(Week <= yearweek('2015-12-31'))
+
+best_fit %>% 
+  forecast(h = '1 year') %>% 
+  autoplot(us_gas)
+```
+
+**RESPONSE:**
+The plot is clearly sticking to the sin wave method where it is taking heavily into consideration the trend and the seasonality of barrels. It will continue to predict this exact same pattern probably forever.

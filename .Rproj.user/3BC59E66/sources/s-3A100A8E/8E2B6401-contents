@@ -1,0 +1,305 @@
+---
+title: "Evaluating Forecast Accuracy"
+author: "Me"
+date: "4/19/2022"
+output: html_document
+---
+
+* Load `fpp3`
+
+```{r message=FALSE}
+# Note that this crazy package actually loads 9
+# packages.  `fpp3` isn't truly a package by itself.
+# ── Attaching packages ────────────────────────── fpp3 0.4.0 ──
+# ✓ tibble      3.1.6     ✓ tsibble     1.1.1
+# ✓ dplyr       1.0.7     ✓ tsibbledata 0.4.0
+# ✓ tidyr       1.1.4     ✓ feasts      0.2.2
+# ✓ lubridate   1.8.0     ✓ fable       0.3.1
+# ✓ ggplot2     3.3.5
+
+library(fpp3)
+```
+
+* Making up some data. Unimportant, scroll on down
+
+```{r}
+n <- 54
+dates <- seq(as.Date("2000-01-01"), by = "month", length.out = n)
+x <- yearmonth(dates)
+
+set.seed(1234)
+my_ts <- tsibble(
+  x = x,
+  y = 1:n + runif(n, -10, 10),
+  index = x
+)
+
+autoplot(my_ts, y)
+```
+
+* Fit 2 TSLMs
+  * 1 using just a trend variable
+  * 1 using a trend variable and a fourier with `K = 6`
+
+```{r}
+fit <- my_ts %>% 
+  model(
+    m1 = TSLM(y ~ trend()),
+    m2 = TSLM(y ~ trend() + fourier(k = 6))
+  )
+```
+
+* Which is a better fit?
+* Compare the Rsquared and AIC of both models
+
+```{r}
+fit %>% 
+  glance() %>% 
+  arrange(AIC)
+```
+
+* Plot the fit of each model (ie overlay forecast and original data; no forecast horizon)
+
+```{r}
+fit %>% 
+  select(m1) %>% 
+  forecast(my_ts) %>% 
+  autoplot(my_ts)
+```
+
+```{r}
+
+```
+
+* Which model is a better fit according to AIC?
+* Have we come to a conclusion on which is better?
+
+```{r}
+fit %>%
+  glance() %>%
+  arrange(AIC)
+```
+
+* We need to know how the model will perform on data it hasn't studied
+
+> Some references describe the test set as the “hold-out set” because these data are “held out” of the data used for fitting. Other references call the training set the “in-sample data” and the test set the “out-of-sample data”. We prefer to use “training data” and “test data” in this book.
+
+^example of statisticians never agreeing on vocab `¯\_(ツ)_/¯`
+
+* In time series, train-test split is based on some point in time
+* How long should test be? As long as your forecast horizon will be
+  * If your model will be used to predict weather for the next 10 days, your test set should be 10 days.
+  
+```
+All observations:
+o-----*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-----> 
+      \_____Train_______/  \__Test__/
+```
+
+* Our fitted model needs to forecast at a 6 month horizon
+* Create a train test split and use 6 months as the holdout length
+
+```{r}
+# (un)Fortunately there's options...
+tail(my_ts$x, 12)
+
+# OPTION 1: Filter based on value ----------------------------
+train <- my_ts %>%
+  filter(x < yearmonth("2003 Jul"))
+
+test1 <- my_ts %>%
+  filter(x >= yearmonth("2003 Jul"))
+
+
+# OPTION 2: Filter with filter_index() -----------------------
+train <- my_ts %>%
+  filter_index(. ~ "2003 Jun")
+
+test2 <- my_ts %>%
+  filter_index("2003 Jul" ~ .)
+
+
+# OPTION 3: Filter with slice -------------------------------
+# Grab rows 1 through n-6
+train <- my_ts %>%
+  slice(1:(n() - 12))
+
+# Grab rows n-5 through n
+# Grab last 5 rows
+test3 <- my_ts %>%
+  slice((n() - 11):n())
+
+all(test1 == test2)
+all(test2 == test3)
+test <- test3
+```
+
+* Refit the same models but just to the training data
+
+```{r}
+fit <- train %>%
+  model(
+    m1 = TSLM(y ~ trend() + fourier(K = 6)),
+    m2 = TSLM(y ~ trend())
+  )
+```
+
+* Forecast with both models and plot
+  * Forecast with only `test` data
+  * Put `my_ts` in autoplot to show the full series
+  * use `level = NULL` in `autoplot()` to remove the PIs
+
+```{r}
+fit %>% 
+  forecast(test) %>% 
+  autoplot(my_ts, level = NULL)
+```
+
+* Copy paste above code and plot with just test instead of all `my_ts`
+* Which forecast do you like better?
+
+```{r}
+
+```
+
+* We need accuracy metrics
+* Generate a forecast for the testing data and save it as `fc`
+
+```{r}
+
+```
+
+* How far away are our predictions from the right answer on average?
+
+```{r}
+# This is teacher stuff. Don't do stuff from this cell on hw
+m1_preds <- fc$.mean[1:12]
+m2_preds <- fc$.mean[13:24]
+
+actual <- test$y
+
+# Calculate how far off we are on average:
+
+```
+
+* Programming practice! Define a function named `mae()`
+* Which model is better by this metric?
+* Interpret this metric as if y was dollars
+
+```{r}
+
+```
+
+* What do the letters in this function name stand for?
+* Interpret this metric as if y was dollars
+
+```{r}
+mape <- function(y_pred, y_true) {
+  mean(abs(y_pred - y_true) / y_true)
+}
+
+mape(m1_preds, actual)
+mape(m2_preds, actual)
+```
+
+* It's good to know how those work (and they're not too bad)
+* In practice, we'll use helper functions
+
+```{r}
+accuracy(fc, test)
+```
+
+* Find the best model for our data according to the test set
+  * Prep the data for ARIMA if needed
+
+```{r}
+
+```
+
+* Why doesn't school only have 1 assignment for the whole semester. 1 grade only?
+
+```{r}
+
+```
+
+* Time series cross validation mimics school
+* Learn from a little and take a test
+* Learn from more and take a test
+* Learn from more and take a test
+* If you're overall average is good then you've learned the important pieces
+
+```
+All obs:
+|-----*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-----> 
+
+
+1st train/test ('o' are ignored obs):
+|-----*-*-*-*-*-*-o-o-o-o-o-o-o-o-o-o-----> 
+      \_Train_/ ^Test
+      
+2nd train/test ('o' are ignored obs):
+|-----*-*-*-*-*-*-*-o-o-o-o-o-o-o-o-o-----> 
+      \__Train__/ ^Test
+      
+3rd train/test ('o' are ignored obs):
+|-----*-*-*-*-*-*-*-*-o-o-o-o-o-o-o-o-----> 
+      \___Train___/ ^Test
+.
+.
+.
+final train/test:
+|-----*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-----> 
+      \___________Train___________/ ^Test
+```
+
+```{r}
+train_cv <- my_ts %>%
+  stretch_tsibble(.init = 3, .step = 1)
+
+# DONT INCLUDE VIEW IN HOMEWORK!
+# THIS LINE CAN CAUSE YOUR RMD TO NOT KNIT
+View(train_cv)
+```
+
+* Compare to `.init = 6`
+
+```{r}
+train_cv <- my_ts %>%
+  stretch_tsibble(.init = 6, .step = 1)
+
+# DONT INCLUDE VIEW IN HOMEWORK!
+# THIS LINE CAN CAUSE YOUR RMD TO NOT KNIT
+View(train_cv)
+```
+
+* Here's full code for CV in ts.
+* Keep this bookmarked (and remember book has a search bar) 
+
+```{r}
+# Use at least 6 months to train on
+train_cv <- my_ts %>%
+  stretch_tsibble(.init = 6, .step = 1)
+
+train_cv %>%
+  model(
+    m1 = TSLM(y ~ trend() + fourier(K = 6)),
+    m2 = TSLM(y ~ trend())
+  ) %>%
+  forecast(h = 1) %>%
+  accuracy(my_ts)
+```
+
+* Throw all our models at the data again.  Which performs best from cross-validated POV?
+
+```{r}
+
+```
+
+* Select the best model
+* Report it's accuracy on the testing data
+* Report it's AIC
+* Plot the forecast with PIs
+
+```{r}
+
+```

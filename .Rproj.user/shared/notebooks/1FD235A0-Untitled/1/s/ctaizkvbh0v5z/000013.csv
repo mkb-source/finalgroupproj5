@@ -1,0 +1,4 @@
+"0","autoplot(credit_ts)
+"
+"1","Plot variable not specified, automatically selected `.vars = credit_in_millions`
+"

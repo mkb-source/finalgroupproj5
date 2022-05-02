@@ -1,0 +1,213 @@
+---
+title: "Time Series Linear Regression"
+author: "Me"
+date: "`r Sys.Date()`"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+### Agenda
+
+* Linear regression review
+* TSLM intro
+  * How to?
+    * `fit <- data %>% model(TSLM(y ~ x))`
+    * `report(fit)`
+    * Forecasting and plotting
+      * Why TSLM?
+        * Exploratoy / Explanatory
+        * Predict future with special ts vars
+    * Model comparison / selection with `glance()`
+      * Use `fit %>% select(model_name)` to extract
+
+```{r message=FALSE}
+library(fpp3)
+
+data("us_change")
+```
+
+## Warm-up
+
+Get to know the `us_change` data.frame.
+
+```{r}
+dim(us_change)
+names(us_change)
+```
+
+* Plot the Unemployment series. 
+* Does there appear to be seasonality?
+  * Create a seasonal plot to further investigate
+
+```{r}
+autoplot(us_change, Unemployment)
+```
+``` {r}
+gg_season(us_change, Unemployment)
+gg_subseries(us_change, Unemployment)
+```
+
+
+## Linear regression review
+
+$$y = \beta_0 + \beta_1x + \epsilon$$
+
+### Predicting Savings
+
+* What variable(s) do you think will help predict Savings?
+* How could we investigate this?
+  * Visually?
+  * Numerically?
+
+```{r}
+
+
+pairs(us_change)
+
+cor(us_change[,-1])
+```
+
+* Create a scatter plot of the best predictor (x) and Savings (y)
+
+```{r}
+plot(Savings ~ Income, data = us_change)
+```
+
+* Create a regression model of the best predictor (x) and Savings (y)
+
+```{r}
+fit <- lm(Savings ~ Income, data = us_change)
+summary(fit)
+```
+
+* Interpret the intercept and coefficients.
+- For every 1 unit increase in income, we expect to see a 9.57increase in savings
+* Is this a significant predictor of Savings?
+- Yes
+* How much of the variation in Savings is explained by your predictor?
+- 52% of the variation in savings is explained by income
+
+* Create a model using the 2 best predictors from your EDA.  Is this model better than the single variable model?
+
+```{r}
+fit <- lm(Savings ~ Income + Consumption, data = us_change)
+summary(fit)
+```
+
+* We're supposed to check something now to inspect how the model is performing.... what's that?
+
+### Linear models in time series
+
+`TSLM()` - `T`ime `S`eries `L`inear `M`odel
+
+```{r}
+fit <- us_change %>%
+  model(TSLM(Savings ~ Income))
+```
+
+* Use `report()` on the `fit` model
+
+```{r}
+report(fit)
+```
+
+* Create a forecast using the model
+
+```{r}
+fit %>% 
+  forecast(us_change)
+```
+
+* Plot the forecast
+* Plot the forecast and the actual data
+
+```{r}
+# Just forecast plot
+fit %>%
+  forecast(us_change) %>%
+  autoplot()
+
+# Add og data to plot
+fit %>%
+  forecast(us_change) %>% # <- needs data to predict
+  autoplot(us_change) #     <- adding data to forecast plot
+```
+
+* Create a model using `Income` and `Production` to predict `Consumption`
+
+```{r}
+fit <- us_change %>% 
+  model(TSLM(Consumption ~ Income + Production))
+report(fit)
+```
+
+* Create a model using `Income + Savings + Production` to predict `Consumption`
+* Which model is better? How do you know?
+
+```{r}
+fit <- us_change %>% 
+  model(TSLM(Consumption ~ Income + Savings + Production))
+report(fit)
+```
+
+
+* We can fit multiple models at once and use `glance()` to compare
+
+```{r}
+fit <- us_change %>%
+  model(
+    one_x = TSLM(Consumption ~ Income),
+    two_xs = TSLM(Consumption ~ Income + Savings),
+    three_xs = TSLM(Consumption ~ Income + Savings + Production)
+  )
+
+glance(fit) %>% 
+  arrange(AIC)
+
+glance(fit) %>% 
+  arrange(desc(r_squared))
+```
+
+* Use `select()` to pull out the best model and show its `report()`
+
+```{r}
+best_fit <- fit %>% 
+  select(three_xs)
+
+report(best_fit)
+```
+
+* Create and plot a forecast using the best model
+
+```{r}
+best_fit %>% 
+  forecast(us_change) %>% 
+  autoplot(us_change)
+```
+
+### Given time:
+
+* Plot the residuals of the model using `gg_tsresiduals()`
+
+```{r}
+gg_tsresiduals(best_fit)
+```
+
+
+### Still to come:
+
+* Special time series predictors
+  * Trend
+  * Seasonal Dummy Vars
+  * Lag
+  * Fourier
+* Predicting the future
+  * Scenario forecasting
+  * ts predictors
+  * evaluation / hold out sample
+  * Prediction intervals
+* Residuals
+  * Plots
+  * Reasoning
+  * Ljung Box test

@@ -1,0 +1,207 @@
+---
+title: "Simple forecasts"
+author: "Me"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r message=FALSE}
+library(fpp3)
+```
+
+```r
+# Fitting a ts model in our framework:
+#  1. 'fit' a model to the data
+fit <- my_ts %>% 
+  model(<your model details go here>)
+
+#  2. Evaluate the model (coming soon)
+
+#  3a. Forecast (with a given horizon)
+fit %>% 
+  forecast(h = "2 years")
+
+#  3b. Forecast and plot
+fit %>% 
+  forecast(h = "48 months") %>% 
+  autoplot(my_ts)  # The data I originally fit the model to
+```
+
+```{r}
+# Small made up data
+quarter <- c(
+  "2000 Q1", "2000 Q2", "2000 Q3",
+  "2000 Q4", "2001 Q1", "2001 Q2"
+)
+value <- c(10, 15, 18, 12, 11, 18)
+
+my_ts <- data.frame(
+  quarter = yearquarter(quarter),
+  value = value
+)
+
+my_ts <- tsibble(my_ts, index = quarter)
+autoplot(my_ts, value)
+```
+
+## Simple forecast models
+
+* Simple forecasts (all are very `¯\_(ツ)_/¯`)
+* Mostly used as benchmarks - if your fancy forecast doesn't beat this...... KISS
+
+### Mean:
+
+* Just predict the average `¯\_(ツ)_/¯`
+  * Mean is 14.
+  * My forecast forever is 14.
+
+```{r}
+fit <- my_ts %>%
+  model(MEAN(value))
+
+fit %>%
+  forecast() %>%
+  autoplot(my_ts) +
+  labs(title = "Mean model")
+```
+
+### Naïve:
+
+* Just predict the average `¯\_(ツ)_/¯`
+  * Last value is 18.
+  * My forecast forever is 18.
+
+```{r}
+fit <- my_ts %>%
+  model(NAIVE(value))
+
+fit %>%
+  forecast() %>%
+  autoplot(my_ts) +
+  labs(title = "Naïve model")
+```
+
+### Seasonal naïve
+
+* Just predict the value of the last season `¯\_(ツ)_/¯` 
+  * Last Q1 value is 11 - this is my forecast for every future Q1
+  * Last Q2 value is 18 - this is my forecast for every future Q2
+  * Last Q3 value is 18 - this is my forecast for every future Q3
+  * Last Q4 value is 12 - this is my forecast for every future Q4
+  
+```{r}
+fit <- my_ts %>%
+  model(SNAIVE(value))
+
+fit %>%
+  forecast() %>%
+  autoplot(my_ts) +
+  labs(title = "Seasonal naïve model")
+```
+
+### Drift
+
+* Draw a line through first and last point of series. 
+  * Continue this line in the future to forecast
+  * First value is 10 & last value is 18
+  * Connect these 2 points and use this line to predict
+
+```{r}
+fit <- my_ts %>%
+  model(RW(value ~ drift()))
+
+fit %>%
+  forecast() %>%
+  autoplot(my_ts) +
+  labs(title = "Drift model")
+```
+
+```{r}
+# DONT COPY THIS CODE. COPY ABOVE CODE.
+# THIS CELL IS JUST TO FURTHER SHOW DRIFT LINE
+first_val <- head(my_ts$value, 1)
+last_val <- tail(my_ts$value, 1)
+line_vals <- seq(first_val, last_val, length.out = nrow(my_ts))
+my_ts$drift_vals <- line_vals
+
+my_ts_long <- my_ts %>%
+  pivot_longer(c("value", "drift_vals"))
+
+my_ts %>%
+  model(RW(value ~ drift())) %>%
+  forecast() %>%
+  autoplot(my_ts) +
+  geom_line(data = my_ts, aes(quarter, drift_vals), color = "red", linetype = "dashed") +
+  labs(title = "Drift model")
+```
+
+
+## 
+
+```{r}
+data_url <- "https://docs.google.com/spreadsheets/d/1kY16w2rT8SCqYoLhH6mmV8XbeexLASqZkMrmJ8rQKN4/export?format=csv"
+my_ts <- read.csv(data_url)
+
+my_ts$month <- month(ts$month)
+my_ts <- tsibble(my_ts, index = month, key = type)
+
+organic <- my_ts[my_ts$type == "organic", -2]
+conventional <- my_ts[my_ts$type == "conventional", -2]
+
+head(organic, 3)
+head(conventional, 3)
+```
+
+* First impression interpretations of this series? what buzzwords can you say about it? Look hard to predict? easy?
+
+```{r}
+autoplot(organic, volume) +
+  labs(title = "Organic volume")
+```
+
+* First impression interpretations of this series? what buzzwords can you say about it? Look hard to predict? easy?
+
+```{r}
+autoplot(conventional, volume) +
+  labs(title = "Conventional volume")
+```
+
+* First impression interpretations of this series? what buzzwords can you say about it? Look hard to predict? easy?
+
+```{r}
+autoplot(organic, avg_price) +
+  labs(title = "Organic avg price")
+```
+
+* First impression interpretations of this series? what buzzwords can you say about it? Look hard to predict? easy?
+
+```{r}
+autoplot(conventional, avg_price) +
+  labs(title = "Conventional avg price")
+```
+
+* Which of our 4 models would work best to forecast organic avg_price?
+* Fit and forecast:
+
+```{r}
+
+```
+
+* Which of our 4 models would work best to forecast organic volume?
+* Fit and forecast:
+
+```{r}
+
+```
+
+* Fit a mean model to either conventional volume or conventional avg_price
+
+```{r}
+
+```
+
+* Fit a naive model to either conventional volume or conventional avg_price
+
+```{r}
+
+```
