@@ -1,1 +1,19 @@
 "0","knitr::opts_chunk$set(echo = TRUE)"
+"0","library(fpp3)"
+"2","[37m-- [1mAttaching packages[22m ------------------------------------ fpp3 0.4.0 --[39m
+"
+"2","[37m[32mv[37m [34mtibble     [37m 3.1.4      [32mv[37m [34mtsibble    [37m 1.1.1 
+[32mv[37m [34mdplyr      [37m 1.0.7      [32mv[37m [34mtsibbledata[37m 0.4.0 
+[32mv[37m [34mtidyr      [37m 1.1.4      [32mv[37m [34mfeasts     [37m 0.2.2 
+[32mv[37m [34mlubridate  [37m 1.7.10     [32mv[37m [34mfable      [37m 0.3.1 
+[32mv[37m [34mggplot2    [37m 3.3.5      [39m
+"
+"2","[37m-- [1mConflicts[22m ----------------------------------------- fpp3_conflicts --
+[31mx[37m [34mlubridate[37m::[32mdate()[37m    masks [34mbase[37m::date()
+[31mx[37m [34mdplyr[37m::[32mfilter()[37m      masks [34mstats[37m::filter()
+[31mx[37m [34mtsibble[37m::[32mintersect()[37m masks [34mbase[37m::intersect()
+[31mx[37m [34mtsibble[37m::[32minterval()[37m  masks [34mlubridate[37m::interval()
+[31mx[37m [34mdplyr[37m::[32mlag()[37m         masks [34mstats[37m::lag()
+[31mx[37m [34mtsibble[37m::[32msetdiff()[37m   masks [34mbase[37m::setdiff()
+[31mx[37m [34mtsibble[37m::[32munion()[37m     masks [34mbase[37m::union()[39m
+"

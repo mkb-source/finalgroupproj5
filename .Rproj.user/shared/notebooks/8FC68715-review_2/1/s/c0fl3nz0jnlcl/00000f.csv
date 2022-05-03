@@ -1,0 +1,6 @@
+"0","ses_weights <- function(alpha) {"
+"0","  i <- 0:4"
+"0","  weights <- alpha * (1 - alpha) ^ i"
+"0","  plot(i, weights, type = 'l', main = paste('alpha = ', alpha))"
+"0","  text(weights, x = i, y = weights, col = 'red')"
+"0","}"
