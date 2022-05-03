@@ -7,6 +7,7 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+library(fpp3)
 ```
 
 ```{r}
@@ -44,6 +45,25 @@ mape(y_pred1, y_actual1)
 
 ```{r}
 #nnet
+train <- head(credit_ts, nrow(credit_ts) - 12)
+
+test <- tail(credit_ts, 12)
+
+fit <- train %>% 
+  model(nnet = NNETAR(credit_in_millions))
+
+fit %>% 
+  forecast(h = 12, times=5)
+
+accuracy(fit) 
+  
+pred <- test %>% 
+model(nnet = NNETAR(credit_in_millions))
+  
+pred %>% 
+forecast(h = 12, times=5)
+  
+accuracy(pred)
 ```
 
 
