@@ -45,25 +45,20 @@ mape(y_pred1, y_actual1)
 
 ```{r}
 #nnet
-train <- head(credit_ts, nrow(credit_ts) - 12)
-
-test <- tail(credit_ts, 12)
-
-fit <- train %>% 
+fit <- credit_ts %>% 
   model(nnet = NNETAR(credit_in_millions))
 
-fit %>% 
-  forecast(h = 12, times=5)
+fc<-fit %>% 
+  forecast(h = 12)
 
-accuracy(fit) 
-  
-pred <- test %>% 
-model(nnet = NNETAR(credit_in_millions))
-  
-pred %>% 
-forecast(h = 12, times=5)
-  
-accuracy(pred)
+y_pred1 <- fc$.mean
+y_actual1 <- credit_ts$credit_in_millions
+
+
+rmse <- function(y_actual, y_pred) {sqrt(mean(y_actual - y_pred)^2)}
+mape <- function(y_actual, y_pred) {mean(abs(y_actual - y_pred / y_actual))}
+rmse(y_pred1, y_actual1)
+mape(y_pred1, y_actual1)
 ```
 
 
