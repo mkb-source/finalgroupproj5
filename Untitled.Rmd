@@ -49,7 +49,7 @@ fit <- credit_ts %>%
   model(nnet = NNETAR(credit_in_millions))
 
 fc<-fit %>% 
-  forecast(h = 12)
+  forecast(h = 12,times=20)
 
 y_pred1 <- fc$.mean
 y_actual1 <- credit_ts$credit_in_millions
