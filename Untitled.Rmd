@@ -7,6 +7,7 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+library(fpp3)
 ```
 
 ```{r}
@@ -44,6 +45,20 @@ mape(y_pred1, y_actual1)
 
 ```{r}
 #nnet
+fit <- credit_ts %>% 
+  model(nnet = NNETAR(credit_in_millions))
+
+fc<-fit %>% 
+  forecast(h = 12,times=100)
+
+y_pred <- fc$.mean
+y_actual <- credit_ts$credit_in_millions
+
+
+rmse <- function(y_actual, y_pred) {sqrt(mean(y_actual - y_pred)^2)}
+mape <- function(y_actual, y_pred) {mean(abs(y_actual - y_pred / y_actual))}
+rmse(y_actual, y_pred)
+mape(y_actual, y_pred)
 ```
 
 
