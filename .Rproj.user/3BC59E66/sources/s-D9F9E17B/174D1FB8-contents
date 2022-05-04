@@ -1,0 +1,239 @@
+---
+title: "Review 2 - TSLM, ETS, ARIMA"
+author: "Me"
+date: "5/3/2022"
+output: html_document
+---
+
+```{r message=FALSE}
+library(fpp3)
+```
+
+## TSLM (time series linear model)
+
+* Special ts vars (and interpreting them and parameters)
+  * 
+  * 
+  * 
+* Model metrics
+  *
+  * 
+
+--------------
+
+Compare the below 2 fit models:
+
+* Which model appears to explain Cement better?
+* Why is the comparison of Adj Rsq closer than the comparison of Rsq?
+
+```{r}
+data("aus_production")
+
+fit <- aus_production %>% 
+  model(
+    m1 = TSLM(Cement ~ trend() + season() + Electricity),
+    m2 = TSLM(Cement ~ trend() + season())
+  )
+glance(fit)
+```
+
+With how close it is, we'll choose the simpler model here.
+
+* Report the fit
+* Which season has the lowest cement production?
+* Which season has the highest cement production?
+* Say we seasonally adjusted the series. This quarter has Cement = 800; predict next quarter without code.
+
+```{r}
+m2 <- fit %>% 
+  select(m2)
+
+report(m2)
+```
+
+Fit the best possible "harmonic" regression to cement (include only trend and the terms to make it "harmonic")
+
+```{r}
+fit <- aus_production %>% 
+  model(
+    tf1 = TSLM(Cement ~ trend() + fourier(K = 1)),
+    tf2 = TSLM(Cement ~ trend() + fourier(K = 2)),
+    f1 = TSLM(Cement ~ fourier(K = 1)),
+    f2 = TSLM(Cement ~ fourier(K = 2))
+  )
+glance(fit) %>% 
+  arrange(AIC)
+```
+
+Plot the fit vs actual data. Do you expect to see autocorrelation in the residuals?
+
+```{r}
+fit %>% 
+  select(tf2) %>% 
+  forecast(aus_production) %>% 
+  autoplot(aus_production)
+```
+
+Plot the residuals
+
+```{r}
+fit %>% 
+  select(tf2) %>% 
+  gg_tsresiduals()
+```
+
+
+## ETS (exponential smoothing)
+
+* Simple exponential smoothing takes a weighted average of past.
+* Use alpha to tune weighted average
+  * Higher alpha -> higher weight to recent past
+  * lag1 is given alpha as a weight and weights get smaller afterwards
+
+See https://spannbaueradam.shinyapps.io/ses-weights/ for interactive version of below ses_weights function.
+
+```{r}
+ses_weights <- function(alpha) {
+  i <- 0:4
+  weights <- alpha * (1 - alpha) ^ i
+  plot(i, weights, type = 'l', main = paste('alpha = ', alpha))
+  text(weights, x = i, y = weights, col = 'red')
+}
+```
+
+```{r}
+ses_weights(alpha = 0.2)
+```
+
+```{r}
+ses_weights(alpha = 0.8)
+```
+
+*just* using a weighted average of the past leads to this type of forecast:
+
+```{r}
+# In practice you'll usually let ETS decide its parameters for you
+# ie ETS(Cement)
+
+fit <- aus_production %>% 
+  model(ETS(Cement ~ error('A') + trend('N') + season('N')))
+
+fit %>% 
+  forecast(h = 200) %>% 
+  autoplot(aus_production)
+```
+
+Holt's adds linear trend to exponential smoothing
+
+*just* using weighted average of past leads to this type of forecast:
+
+```{r}
+# In practice you'll usually let ETS decide its parameters for you
+# ie ETS(Cement)
+
+fit <- aus_production %>% 
+  model(ETS(Cement ~ error('A') + trend('A') + season('N')))
+
+fit %>% 
+  forecast(h = 200) %>% 
+  autoplot(aus_production)
+```
+
+_________'s adds seasonality to exponential smoothing.
+
+Just because it can capture trend doesn't mean it's deemed the best fit.
+Also remember i'm forecast 200 quarters (aka 50 years), a lot of forecasts look silly at that horizon
+
+```{r}
+fit <- aus_production %>% 
+  model(ETS(Cement))
+
+fit %>% 
+  forecast(h = 200) %>% 
+  autoplot(aus_production)
+
+report(fit)
+```
+
+## ARIMA
+
+* Stationary - value of series doesn't depend on time it was observed)
+  * Constant mean
+    * fix with: differencing
+  * Constant variance
+    * fix with: box-cox
+  * No seasonality
+    * fix with: seasonal differencing
+  * ARIMA handles 2 of those automagically: 
+
+* ARIMA
+  * AR - auto-regression
+    * regression using lags (past values)
+    * AR(1) -> y = intercept + B*lag1
+    AR92) -> y = intercept + B1*lag1 + B2*lag2
+  * I - differencing (aka integration)
+  * MA - moving average
+    * regression using lagged "errors"
+      * error - how far above/below from mean
+      * '5 above agerage yesterday, predict 5 above again today'
+    *
+  
+* pdq: 
+  * p- 0 - AR - number of auto-regressive terms
+  * d- 1 - difference
+  * q- 2 - MA - number of ma terms
+  
+* PDQ: Seasonal
+  * P - 3 - AR - number of seasonal auto-regressive terms
+  * D - 4 - seasonal diff
+  * Q - 5 - MA - number of seasonal ma terms
+
+
+```{r}
+data("aus_production")
+
+aus_production %>% 
+  autoplot(Cement)
+```
+
+Make that thing as stationary as you can:
+
+```{r}
+lambda <- aus_production %>% 
+  features(Cement, features = guerrero) %>% 
+  pull(lambda_guerrero)
+
+aus_production %>% 
+  autoplot(box_cox(Cement, lambda))
+```
+
+```{r}
+aus_production %>% 
+  mutate(Cement = box_cox(Cement, lambda)) %>% 
+  mutate(Cement = difference(Cement, 4)) %>% 
+  mutate(Cement = difference(Cement, 1)) %>% 
+  autoplot(difference(Cement, 4))
+  
+
+x <- c(5,10,15,20,25,30,35,40)
+difference(x,4)
+```
+
+
+* Fit an ARIMA and report the fit; interpret all pdqPDQ output
+
+```{r}
+fit <- aus_production %>% 
+  model(ARIMA(Cement))
+report(fit)
+```
+
+
+AR - 2
+I - 0
+MA - 2
+
+AR - 0
+I - 1
+MA - 1
+

@@ -1,0 +1,6 @@
+"0","lambda <- aus_production %>% "
+"0","  features(Cement, features = guerrero) %>% "
+"0","  pull(lambda_guerrero)"
+"0",""
+"0","aus_production %>% "
+"0","  autoplot(box_cox(Cement, lambda))"
