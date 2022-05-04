@@ -1,6 +1,0 @@
-"0","fit <- aus_production %>% "
-"0","  model(ETS(Cement))"
-"0",""
-"0","fit %>% "
-"0","  forecast(h = 200) %>% "
-"0","  autoplot(aus_production)"

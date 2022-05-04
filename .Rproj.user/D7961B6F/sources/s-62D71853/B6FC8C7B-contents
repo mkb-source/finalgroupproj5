@@ -7,14 +7,12 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-library(fpp3)
-library(dplyr)
-
 ```
 
 ```{r}
 #data clean up 
 #dont touch unless you want death <3 -makenzie
+
 credit <- transform(credit, credit_in_millions = rev(credit_in_millions))
 credit_ts <- credit %>% 
   mutate(Month = seq(as.Date("1981/1/1"), by = 'month', length.out = nrow(credit))) %>% 
@@ -39,65 +37,24 @@ y_actual1 <- credit_ts$credit_in_millions
 rmse <- function(y_actual, y_pred) {sqrt(mean(y_actual - y_pred)^2)}
 mape <- function(y_actual, y_pred) {mean(abs(y_actual - y_pred / y_actual))}
 
-rmse(y_actual1, y_pred1)
-mape(y_actual1, y_pred1)
-```
-
-
-```{r}
-#nnet
-
-fit <- credit_ts %>%
-  model(nnet = NNETAR(credit_in_millions))
-
-fcNET<-fit %>%
-  forecast(h = 12,times=100)
-
-
-
-y_pred <- fcNET$.mean
-y_actual <- credit_ts$credit_in_millions
-
-
-rmse <- function(y_actual, y_pred) {sqrt(mean(y_actual - y_pred)^2)}
-mape <- function(y_actual, y_pred) {mean(abs(y_actual - y_pred / y_actual))}
-rmse(y_actual, y_pred)
-mape(y_actual, y_pred)
-
-
-fit %>%
-  forecast(h=12,times=100) %>%
-  autoplot(credit_ts)
-
-write.csv(fcNET,file = "predictions.csv")
-```
-
-
-```{r}
-#arima
-arima <- credit_ts %>% 
-  model(ARIMA(credit_in_millions))
-gg_tsresiduals(arima)
-fc <- arima %>% 
-  forecast(h = 12)
-
-y_pred1 <- fc$.mean
-y_actual1 <- credit_ts$credit_in_millions
-
-rmse <- function(y_actual, y_pred) {sqrt(mean(y_actual - y_pred)^2)}
-mape <- function(y_actual, y_pred) {mean(abs(y_actual - y_pred / y_actual))}
-
-arima %>% 
-  forecast(h = 12) %>% 
-  autoplot(credit_ts)
-
 rmse(y_pred1, y_actual1)
 mape(y_pred1, y_actual1)
 ```
 
 
 ```{r}
+#nnet
+```
+
+
+```{r}
+#arima
+```
+
+
+```{r}
 #tslm
+library(fpp3)
 Fit_credit<- credit_ts %>% 
   model(LinearModel = TSLM(credit_in_millions~trend()))
         glance(Fit_credit)
